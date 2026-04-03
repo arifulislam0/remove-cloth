@@ -3,95 +3,186 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ariful AI Photo Editor</title>
+    <title>Ariful AI Advanced Photo Editor</title>
     <style>
-        body { font-family: Arial, sans-serif; background-color: #f4f4f9; text-align: center; padding: 20px; }
-        .editor-container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.1); display: inline-block; max-width: 90%; }
-        canvas { max-width: 100%; border-radius: 10px; margin-top: 20px; background: #eee; }
-        .controls { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
-        input[type="range"] { width: 100%; }
-        button { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px; width: 100%; }
-        button:hover { background: #218838; }
-        .upload-btn { background: #007bff; }
+        body { font-family: sans-serif; text-align: center; background-color: #f0f2f5; margin: 0; padding: 20px; }
+        .editor-container { display: flex; max-width: 1000px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .controls { flex: 1; padding-right: 20px; text-align: left; }
+        .canvas-container { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        canvas { border: 2px solid #ccc; max-width: 100%; height: auto; cursor: crosshair; }
+        label, button { display: block; margin: 10px 0; padding: 10px; border-radius: 5px; cursor: pointer; }
+        input[type="color"] { width: 100%; height: 40px; border: none; cursor: pointer; }
+        .clothing-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 20px; }
+        .clothing-item { width: 100%; border: 1px solid #ddd; padding: 5px; border-radius: 5px; cursor: pointer; transition: transform 0.2s; }
+        .clothing-item:hover { transform: scale(1.05); border-color: #4CAF50; }
+        button { background-color: #4CAF50; color: white; border: none; font-size: 16px; transition: background 0.3s; width: 100%; }
+        button:hover { background-color: #45a049; }
+        .instruction { font-size: 12px; color: #777; margin-bottom: 20px; }
     </style>
 </head>
 <body>
 
-<div class="editor-container">
-    <h2>Ariful AI Photo Editor</h2>
-    <p>আপনার ছবি আপলোড করে এডিট করুন</p>
-    
-    <input type="file" id="upload" accept="image/*" class="custom-file-input">
-    <br>
-    <canvas id="canvas"></canvas>
+    <h2>Ariful AI Advanced Photo Editor</h2>
+    <p class="instruction">ছবি আপলোড দিন, ব্যাকগ্রাউন্ড কালার সিলেক্ট করুন এবং পাশে পোশাক এ ক্লিক করে বসিয়ে দিন।</p>
 
-    <div class="controls">
-        <div>
-            <label>উজ্জ্বলতা (Brightness)</label>
-            <input type="range" id="brightness" min="0" max="200" value="100">
+    <div class="editor-container">
+        <div class="controls">
+            <label>১. ছবি আপলোড দিন:</label>
+            <input type="file" id="imageLoader" accept="image/*">
+
+            <label>২. ব্যাকগ্রাউন্ড কালার পরিবর্তন:</label>
+            <input type="color" id="bgColorPicker" value="#ffffff">
+
+            <label>৩. পোশাক সিলেক্ট করুন:</label>
+            <div class="clothing-list">
+                <img class="clothing-item" src="https://i.ibb.co/68fKxXq/suit1.png" data-src="https://i.ibb.co/68fKxXq/suit1.png" alt="Suit 1">
+                <img class="clothing-item" src="https://i.ibb.co/3WfK4K0/shirt1.png" data-src="https://i.ibb.co/3WfK4K0/shirt1.png" alt="Shirt 1">
+                <img class="clothing-item" src="https://i.ibb.co/bW0kH4v/dress1.png" data-src="https://i.ibb.co/bW0kH4v/dress1.png" alt="Dress 1">
+            </div>
+            
+            <p class="instruction" style="margin-top: 20px;">* পোশাক টি রিসাইজ (ছোট-বড়) করতে নিচের স্লাইডার ব্যবহার করুন:</p>
+            <input type="range" id="sizeSlider" min="0.1" max="2" step="0.05" value="1">
+            <label>পোশাকের সাইজ: <span id="sizeValue">1</span>x</label>
+
+            <button onclick="downloadImage()">৪. ছবি ডাউনলোড করুন</button>
         </div>
-        <div>
-            <label>ঝাপসা (Blur)</label>
-            <input type="range" id="blur" min="0" max="10" value="0">
-        </div>
-        <div>
-            <label>কন্ট্রাস্ট (Contrast)</label>
-            <input type="range" id="contrast" min="0" max="200" value="100">
-        </div>
-        <div>
-            <label>সাদা-কালো (Grayscale)</label>
-            <input type="range" id="grayscale" min="0" max="100" value="0">
+
+        <div class="canvas-container">
+            <canvas id="imageCanvas"></canvas>
+            <p class="instruction">ছবি আপলোড দিলে এখানে দেখা যাবে। পোশাক টি ক্যানভাসে ড্র্যাগ করে সেট করুন।</p>
         </div>
     </div>
-    
-    <button onclick="downloadImage()">ছবি ডাউনলোড করুন</button>
-</div>
 
-<script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const upload = document.getElementById('upload');
-    const brightness = document.getElementById('brightness');
-    const blur = document.getElementById('blur');
-    const contrast = document.getElementById('contrast');
-    const grayscale = document.getElementById('grayscale');
+    <script>
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const imageLoader = document.getElementById('imageLoader');
+        const bgColorPicker = document.getElementById('bgColorPicker');
+        const clothingItems = document.querySelectorAll('.clothing-item');
+        const sizeSlider = document.getElementById('sizeSlider');
+        const sizeValueSpan = document.getElementById('sizeValue');
 
-    let img = new Image();
+        let originalImage = null;
+        let selectedClothing = null;
+        let clothingScale = 1;
+        let clothingPos = { x: 50, y: 50 }; // শুরুর অবস্থান
+        let isDragging = false;
+        let startDragPos = { x: 0, y: 0 };
 
-    upload.addEventListener('change', (e) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            img.onload = () => {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                applyFilters();
+        // ক্যানভাস সাইজ নির্ধারণ
+        canvas.width = 500;
+        canvas.height = 600;
+
+        // ১. ছবি আপলোড
+        imageLoader.addEventListener('change', (e) => {
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImage = new Image();
+                originalImage.onload = () => {
+                    drawCanvas();
+                };
+                originalImage.src = event.target.result;
             };
-            img.src = reader.result;
-        };
-        reader.readAsDataURL(e.target.files[0]);
-    });
+            reader.readAsDataURL(e.target.files[0]);
+        });
 
-    function applyFilters() {
-        ctx.filter = `
-            brightness(${brightness.value}%)
-            blur(${blur.value}px)
-            contrast(${contrast.value}%)
-            grayscale(${grayscale.value}%)
-        `;
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    }
+        // ২. ব্যাকগ্রাউন্ড কালার পরিবর্তন
+        bgColorPicker.addEventListener('input', () => {
+            drawCanvas();
+        });
 
-    [brightness, blur, contrast, grayscale].forEach(input => {
-        input.addEventListener('input', applyFilters);
-    });
+        // ৩. পোশাক সিলেক্ট এবং যোগ
+        clothingItems.forEach(item => {
+            item.addEventListener('click', () => {
+                const clothingImage = new Image();
+                clothingImage.src = item.dataset.src;
+                clothingImage.onload = () => {
+                    selectedClothing = clothingImage;
+                    clothingScale = 1; // রিসেট স্কেল
+                    sizeSlider.value = 1; // রিসেট স্লাইডার
+                    clothingPos = { // ছবিটির মাঝখানে সেট করা
+                        x: (canvas.width - selectedClothing.width) / 2,
+                        y: canvas.height * 0.3 // অনুমানিক গলা থেকে শুরু
+                    };
+                    drawCanvas();
+                };
+            });
+        });
 
-    function downloadImage() {
-        const link = document.createElement('a');
-        link.download = 'ariful-editor-photo.png';
-        link.href = canvas.toDataURL();
-        link.click();
-    }
-</script>
+        // ৪. পোশাক রিসাইজ স্লাইডার
+        sizeSlider.addEventListener('input', (e) => {
+            clothingScale = e.target.value;
+            sizeValueSpan.innerText = clothingScale;
+            drawCanvas();
+        });
 
+        // ক্যানভাসে সব আঁকা (মেইন ফাংশন)
+        function drawCanvas() {
+            // ব্যাকগ্রাউন্ড আঁকা
+            ctx.fillStyle = bgColorPicker.value;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // মূল ছবি আঁকা
+            if (originalImage) {
+                const ratio = Math.min(canvas.width / originalImage.width, canvas.height / originalImage.height);
+                const width = originalImage.width * ratio;
+                const height = originalImage.height * ratio;
+                const x = (canvas.width - width) / 2;
+                const y = (canvas.height - height) / 2;
+                ctx.drawImage(originalImage, x, y, width, height);
+            }
+
+            // পোশাক আঁকা (উপরে)
+            if (selectedClothing) {
+                const drawWidth = selectedClothing.width * clothingScale;
+                const drawHeight = selectedClothing.height * clothingScale;
+                ctx.drawImage(selectedClothing, clothingPos.x, clothingPos.y, drawWidth, drawHeight);
+            }
+        }
+
+        // --- ড্র্যাগিং (Drag) ফাংশনসমূহ ---
+        canvas.addEventListener('mousedown', (e) => {
+            if (!selectedClothing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const drawWidth = selectedClothing.width * clothingScale;
+            const drawHeight = selectedClothing.height * clothingScale;
+
+            if (mouseX >= clothingPos.x && mouseX <= clothingPos.x + drawWidth &&
+                mouseY >= clothingPos.y && mouseY <= clothingPos.y + drawHeight) {
+                isDragging = true;
+                startDragPos.x = mouseX - clothingPos.x;
+                startDragPos.y = mouseY - clothingPos.y;
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                clothingPos.x = mouseX - startDragPos.x;
+                clothingPos.y = mouseY - startDragPos.y;
+                drawCanvas();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => { isDragging = false; });
+        canvas.addEventListener('mouseleave', () => { isDragging = false; }); // ক্যানভাস থেকে বের হলে ড্র্যাগিং বন্ধ
+
+
+        // ছবি ডাউনলোড
+        function downloadImage() {
+            const link = document.createElement('a');
+            link.download = 'ariful_photo_editor_final.jpg';
+            link.href = canvas.toDataURL('image/jpeg', 0.9);
+            link.click();
+        }
+
+    </script>
 </body>
 </html>
