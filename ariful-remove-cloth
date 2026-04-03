@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ariful AI Photo Editor</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f9; text-align: center; padding: 20px; }
+        .editor-container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 0 20px rgba(0,0,0,0.1); display: inline-block; max-width: 90%; }
+        canvas { max-width: 100%; border-radius: 10px; margin-top: 20px; background: #eee; }
+        .controls { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: left; }
+        input[type="range"] { width: 100%; }
+        button { background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-top: 10px; width: 100%; }
+        button:hover { background: #218838; }
+        .upload-btn { background: #007bff; }
+    </style>
+</head>
+<body>
+
+<div class="editor-container">
+    <h2>Ariful AI Photo Editor</h2>
+    <p>আপনার ছবি আপলোড করে এডিট করুন</p>
+    
+    <input type="file" id="upload" accept="image/*" class="custom-file-input">
+    <br>
+    <canvas id="canvas"></canvas>
+
+    <div class="controls">
+        <div>
+            <label>উজ্জ্বলতা (Brightness)</label>
+            <input type="range" id="brightness" min="0" max="200" value="100">
+        </div>
+        <div>
+            <label>ঝাপসা (Blur)</label>
+            <input type="range" id="blur" min="0" max="10" value="0">
+        </div>
+        <div>
+            <label>কন্ট্রাস্ট (Contrast)</label>
+            <input type="range" id="contrast" min="0" max="200" value="100">
+        </div>
+        <div>
+            <label>সাদা-কালো (Grayscale)</label>
+            <input type="range" id="grayscale" min="0" max="100" value="0">
+        </div>
+    </div>
+    
+    <button onclick="downloadImage()">ছবি ডাউনলোড করুন</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const upload = document.getElementById('upload');
+    const brightness = document.getElementById('brightness');
+    const blur = document.getElementById('blur');
+    const contrast = document.getElementById('contrast');
+    const grayscale = document.getElementById('grayscale');
+
+    let img = new Image();
+
+    upload.addEventListener('change', (e) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+            img.onload = () => {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                applyFilters();
+            };
+            img.src = reader.result;
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    });
+
+    function applyFilters() {
+        ctx.filter = `
+            brightness(${brightness.value}%)
+            blur(${blur.value}px)
+            contrast(${contrast.value}%)
+            grayscale(${grayscale.value}%)
+        `;
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    }
+
+    [brightness, blur, contrast, grayscale].forEach(input => {
+        input.addEventListener('input', applyFilters);
+    });
+
+    function downloadImage() {
+        const link = document.createElement('a');
+        link.download = 'ariful-editor-photo.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+</script>
+
+</body>
+</html>
