@@ -3,104 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ariful AI Photo Editor (Online Mode)</title>
+    <title>Ariful AI - Professional Photo Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #eef2f3; text-align: center; padding: 20px; }
-        .editor-card { background: white; max-width: 600px; margin: 0 auto; padding: 30px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        #preview-canvas { max-width: 100%; border: 2px dashed #ccc; border-radius: 10px; margin-top: 20px; }
-        .btn-group { margin-top: 20px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
-        button { padding: 12px 25px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        .upload-btn { background: #007bff; color: white; }
-        .ai-btn { background: #6f42c1; color: white; }
-        .save-btn { background: #28a745; color: white; }
-        #status { margin-top: 10px; color: #555; font-style: italic; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; text-align: center; margin: 0; }
+        .container { display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        #canvas-holder { border: 3px solid #333; border-radius: 10px; background: #222; overflow: hidden; margin: 20px 0; position: relative; }
+        .controls { background: #1e1e1e; padding: 20px; border-radius: 15px; width: 90%; max-width: 500px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #007bff; color: white; width: 100%; transition: 0.3s; }
+        .btn:hover { background: #0056b3; }
+        .btn-ai { background: #6f42c1; }
+        .btn-save { background: #28a745; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        label { font-size: 13px; color: #aaa; text-align: left; display: block; margin-bottom: 5px; }
+        #loading { color: #ffc107; font-weight: bold; margin: 10px 0; }
     </style>
 </head>
 <body>
 
-<div class="editor-card">
-    <h2>Ariful AI - ব্যাকগ্রাউন্ড রিমুভার</h2>
-    <p>এই টুলটি ব্যবহারের জন্য ইন্টারনেট কানেকশন প্রয়োজন।</p>
+<div class="container">
+    <h2>Ariful AI - ফটো ও পোশাক এডিটর</h2>
+    <p>ব্রাউজার-বেসড AI (কোনো API Key লাগবে না)</p>
     
-    <input type="file" id="imageInput" accept="image/*" hidden>
-    <button class="upload-btn" onclick="document.getElementById('imageInput').click()">ছবি আপলোড করুন</button>
+    <div id="loading">AI মডেল লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</div>
     
-    <div id="status">কোনো ছবি সিলেক্ট করা হয়নি</div>
-    <canvas id="preview-canvas"></canvas>
+    <input type="file" id="imageInput" accept="image/*" class="btn" style="width: auto;">
+    
+    <div id="canvas-holder">
+        </div>
 
-    <div class="btn-group">
-        <button class="ai-btn" onclick="processAI()">AI দিয়ে ব্যাকগ্রাউন্ড সরান</button>
-        <button class="save-btn" onclick="downloadResult()">ছবি সেভ করুন</button>
+    <div class="controls">
+        <div>
+            <label>উজ্জ্বলতা (Brightness)</label>
+            <input type="range" id="bright" min="0" max="200" value="100">
+        </div>
+        <div>
+            <label>ব্যাকগ্রাউন্ড পরিবর্তন (Change BG)</label>
+            <select id="bgType" class="btn" style="background: #333;">
+                <option value="none">স্বাভাবিক (Normal)</option>
+                <option value="blur">ঝাপসা (Blur)</option>
+                <option value="transparent">ট্রান্সপারেন্ট (Remove BG)</option>
+                <option value="black">কালো ব্যাকগ্রাউন্ড</option>
+            </select>
+        </div>
+        <div>
+            <label>পোশাকের কালার ফিল্টার</label>
+            <input type="color" id="dressColor" value="#ffffff">
+        </div>
+        <button class="btn btn-save" onclick="savePhoto()">ছবি সেভ করুন</button>
     </div>
 </div>
 
 <script>
-    const canvas = document.getElementById('preview-canvas');
-    const ctx = canvas.getContext('2d');
-    const status = document.getElementById('status');
-    let originalImage = null;
+    let img;
+    let bodypix;
+    let segmentation;
+    let canvas;
+    let isModelLoaded = false;
 
-    // ১. ছবি লোড করা
-    document.getElementById('imageInput').onchange = function(e) {
-        const reader = new FileReader();
-        reader.onload = function(event) {
-            originalImage = new Image();
-            originalImage.onload = function() {
-                canvas.width = originalImage.width;
-                canvas.height = originalImage.height;
-                ctx.drawImage(originalImage, 0, 0);
-                status.innerText = "ছবি লোড হয়েছে। এবার AI বাটনে ক্লিক করুন।";
-            }
-            originalImage.src = event.target.result;
-        };
-        reader.readAsDataURL(e.target.files[0]);
+    function setup() {
+        let c = createCanvas(500, 600);
+        c.parent('canvas-holder');
+        bodypix = ml5.bodyPix({
+            outputStride: 8,
+            segmentationThreshold: 0.5
+        }, modelReady);
+    }
+
+    function modelReady() {
+        document.getElementById('loading').innerText = "AI মডেল তৈরি! ছবি আপলোড দিন।";
+        isModelLoaded = true;
+    }
+
+    // ছবি আপলোড হ্যান্ডলার
+    document.getElementById('imageInput').onchange = (e) => {
+        let file = e.target.files[0];
+        if (file) {
+            let reader = new FileReader();
+            reader.onload = (event) => {
+                loadImage(event.target.result, (loadedImg) => {
+                    img = loadedImg;
+                    img.resize(500, 600);
+                    if (isModelLoaded) bodypix.segment(img, gotResults);
+                });
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
-    // ২. AI (Remove.bg API) এর মাধ্যমে ব্যাকগ্রাউন্ড সরানো
-    async function processAI() {
-        const fileInput = document.getElementById('imageInput');
-        if (!fileInput.files[0]) return alert("আগে একটি ছবি আপলোড করুন!");
+    function gotResults(err, result) {
+        if (err) return console.log(err);
+        segmentation = result;
+        draw();
+    }
 
-        status.innerText = "AI প্রসেসিং চলছে... দয়া করে অপেক্ষা করুন (ইন্টারনেট চেক করুন)";
+    function draw() {
+        if (!img) return;
+        background(0);
+        
+        let bgType = document.getElementById('bgType').value;
+        let brightness = document.getElementById('bright').value;
+        let dColor = document.getElementById('dressColor').value;
 
-        const formData = new FormData();
-        formData.append('image_file', fileInput.files[0]);
-        formData.append('size', 'auto');
+        // ফিল্টার প্রয়োগ
+        drawingContext.filter = `brightness(${brightness}%)`;
 
-        // *** এখানে আপনার নিজের API Key বসান ***
-        const apiKey = 'YOUR_API_KEY_HERE'; 
-
-        try {
-            const response = await fetch('https://api.remove.bg/v1.0/removebg', {
-                method: 'POST',
-                headers: { 'X-Api-Key': apiKey },
-                body: formData
-            });
-
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = URL.createObjectURL(blob);
-                const resultImg = new Image();
-                resultImg.onload = function() {
-                    ctx.clearRect(0, 0, canvas.width, canvas.height);
-                    ctx.drawImage(resultImg, 0, 0);
-                    status.innerText = "ব্যাকগ্রাউন্ড সফলভাবে সরানো হয়েছে!";
-                };
-                resultImg.src = url;
-            } else {
-                status.innerText = "Error: API লিমিট শেষ বা ভুল কি (Key) দিয়েছেন।";
+        if (segmentation && bgType !== 'none') {
+            // AI দিয়ে ব্যাকগ্রাউন্ড প্রসেসিং
+            if (bgType === 'blur') {
+                image(img, 0, 0);
+                filter(BLUR, 5);
             }
-        } catch (error) {
-            status.innerText = "ইন্টারনেট কানেকশন চেক করুন।";
+            
+            // শুধু মানুষকে দেখানো (Masking)
+            let mask = segmentation.backgroundMask;
+            img.mask(mask);
+            image(img, 0, 0);
+        } else {
+            image(img, 0, 0);
         }
     }
 
-    // ৩. ছবি ডাউনলোড
-    function downloadResult() {
-        const link = document.createElement('a');
-        link.download = 'ariful-ai-result.png';
-        link.href = canvas.toDataURL();
-        link.click();
+    function savePhoto() {
+        saveCanvas('ariful-ai-edited', 'png');
     }
 </script>
 
