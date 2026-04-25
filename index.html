@@ -1,134 +1,92 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ariful AI - Professional Photo Editor</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
-    <script src="https://unpkg.com/ml5@latest/dist/ml5.min.js"></script>
+    <title>ARIFUL UNIVERSAL MRZ GENERATOR</title>
     <style>
-        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; text-align: center; margin: 0; }
-        .container { display: flex; flex-direction: column; align-items: center; padding: 20px; }
-        #canvas-holder { border: 3px solid #333; border-radius: 10px; background: #222; overflow: hidden; margin: 20px 0; position: relative; }
-        .controls { background: #1e1e1e; padding: 20px; border-radius: 15px; width: 90%; max-width: 500px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .btn { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; background: #007bff; color: white; width: 100%; transition: 0.3s; }
-        .btn:hover { background: #0056b3; }
-        .btn-ai { background: #6f42c1; }
-        .btn-save { background: #28a745; }
-        input[type="range"] { width: 100%; cursor: pointer; }
-        label { font-size: 13px; color: #aaa; text-align: left; display: block; margin-bottom: 5px; }
-        #loading { color: #ffc107; font-weight: bold; margin: 10px 0; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: #f0f2f5; padding: 20px; }
+        .container { max-width: 850px; margin: auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); border-top: 8px solid #2c3e50; }
+        
+        /* প্রিমিয়াম টাইটেল স্টাইল */
+        .premium-title { text-align: center; color: #2c3e50; font-size: 28px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 25px; border-bottom: 3px solid #e74c3c; display: inline-block; width: 100%; padding-bottom: 10px; }
+        
+        .grid-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        input, select { width: 100%; padding: 12px; margin-top: 5px; border: 1.5px solid #bdc3c7; border-radius: 6px; }
+        
+        /* রেজাল্ট বক্স বড় এবং পরিষ্কার */
+        #result { width: 100%; height: 140px; background: #000; color: #00ff00; font-family: 'Courier New', monospace; font-size: 24px; padding: 20px; border-radius: 8px; resize: none; box-sizing: border-box; font-weight: bold; }
+        
+        .btn-copy { width: 100%; padding: 20px; background: linear-gradient(to right, #2c3e50, #27ae60); color: white; border: none; cursor: pointer; font-size: 20px; font-weight: bold; border-radius: 6px; margin-top: 15px; transition: 0.3s; }
+        .btn-copy:hover { opacity: 0.9; }
+        
+        .footer { text-align: center; margin-top: 30px; font-size: 16px; color: #34495e; font-weight: bold; padding: 10px; background: #ecf0f1; border-radius: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Ariful AI - ফটো ও পোশাক এডিটর</h2>
-    <p>ব্রাউজার-বেসড AI (কোনো API Key লাগবে না)</p>
+    <h2 class="premium-title">ARIFUL UNIVERSAL MRZ GENERATOR</h2>
     
-    <div id="loading">AI মডেল লোড হচ্ছে, অনুগ্রহ করে অপেক্ষা করুন...</div>
-    
-    <input type="file" id="imageInput" accept="image/*" class="btn" style="width: auto;">
-    
-    <div id="canvas-holder">
-        </div>
+    <div class="grid-container">
+        <div><label>DOC TYPE</label><select id="docType" oninput="generateMRZ()"><option value="P">P</option></select></div>
+        <div><label>COUNTRY</label><input type="text" id="country" value="JPN" oninput="generateMRZ()"></div>
+        <div><label>PASSPORT NO</label><input type="text" id="passport" oninput="generateMRZ()"></div>
+        <div><label>SURNAME</label><input type="text" id="surname" oninput="generateMRZ()"></div>
+        <div><label>GIVEN NAMES</label><input type="text" id="givenNames" oninput="generateMRZ()"></div>
+        <div><label>GENDER</label><select id="gender" oninput="generateMRZ()"><option value="M">Male</option><option value="F">Female</option></select></div>
+        <div><label>DOB (YYMMDD)</label><input type="text" id="dob" oninput="generateMRZ()"></div>
+        <div><label>EXPIRY (YYMMDD)</label><input type="text" id="expiry" oninput="generateMRZ()"></div>
+    </div>
 
-    <div class="controls">
-        <div>
-            <label>উজ্জ্বলতা (Brightness)</label>
-            <input type="range" id="bright" min="0" max="200" value="100">
-        </div>
-        <div>
-            <label>ব্যাকগ্রাউন্ড পরিবর্তন (Change BG)</label>
-            <select id="bgType" class="btn" style="background: #333;">
-                <option value="none">স্বাভাবিক (Normal)</option>
-                <option value="blur">ঝাপসা (Blur)</option>
-                <option value="transparent">ট্রান্সপারেন্ট (Remove BG)</option>
-                <option value="black">কালো ব্যাকগ্রাউন্ড</option>
-            </select>
-        </div>
-        <div>
-            <label>পোশাকের কালার ফিল্টার</label>
-            <input type="color" id="dressColor" value="#ffffff">
-        </div>
-        <button class="btn btn-save" onclick="savePhoto()">ছবি সেভ করুন</button>
+    <textarea id="result" readonly></textarea>
+    <button class="btn-copy" onclick="copyResult()">COPY RESULT</button>
+    
+    <div class="footer">
+        Developed By: Ariful | WhatsApp: +8801981071493 | Official Support: +8801981071493
     </div>
 </div>
 
 <script>
-    let img;
-    let bodypix;
-    let segmentation;
-    let canvas;
-    let isModelLoaded = false;
-
-    function setup() {
-        let c = createCanvas(500, 600);
-        c.parent('canvas-holder');
-        bodypix = ml5.bodyPix({
-            outputStride: 8,
-            segmentationThreshold: 0.5
-        }, modelReady);
-    }
-
-    function modelReady() {
-        document.getElementById('loading').innerText = "AI মডেল তৈরি! ছবি আপলোড দিন।";
-        isModelLoaded = true;
-    }
-
-    // ছবি আপলোড হ্যান্ডলার
-    document.getElementById('imageInput').onchange = (e) => {
-        let file = e.target.files[0];
-        if (file) {
-            let reader = new FileReader();
-            reader.onload = (event) => {
-                loadImage(event.target.result, (loadedImg) => {
-                    img = loadedImg;
-                    img.resize(500, 600);
-                    if (isModelLoaded) bodypix.segment(img, gotResults);
-                });
-            };
-            reader.readAsDataURL(file);
+    function getCheckDigit(str) {
+        let weights = [7, 3, 1];
+        let sum = 0;
+        for (let i = 0; i < str.length; i++) {
+            let char = str[i];
+            let val = (char === '<') ? 0 : parseInt(char, 36);
+            sum += val * weights[i % 3];
         }
-    };
-
-    function gotResults(err, result) {
-        if (err) return console.log(err);
-        segmentation = result;
-        draw();
+        return sum % 10;
     }
 
-    function draw() {
-        if (!img) return;
-        background(0);
+    function generateMRZ() {
+        const type = document.getElementById('docType').value;
+        const country = document.getElementById('country').value.toUpperCase().padEnd(3, '<');
+        const pass = document.getElementById('passport').value.toUpperCase();
+        const sur = document.getElementById('surname').value.toUpperCase().replace(/\s+/g, '<');
+        const giv = document.getElementById('givenNames').value.toUpperCase().replace(/\s+/g, '<');
+        const gen = document.getElementById('gender').value;
+        const dob = document.getElementById('dob').value;
+        const exp = document.getElementById('expiry').value;
+
+        let line1 = (type + "<" + country + sur + "<<" + giv).padEnd(44, '<');
         
-        let bgType = document.getElementById('bgType').value;
-        let brightness = document.getElementById('bright').value;
-        let dColor = document.getElementById('dressColor').value;
-
-        // ফিল্টার প্রয়োগ
-        drawingContext.filter = `brightness(${brightness}%)`;
-
-        if (segmentation && bgType !== 'none') {
-            // AI দিয়ে ব্যাকগ্রাউন্ড প্রসেসিং
-            if (bgType === 'blur') {
-                image(img, 0, 0);
-                filter(BLUR, 5);
-            }
-            
-            // শুধু মানুষকে দেখানো (Masking)
-            let mask = segmentation.backgroundMask;
-            img.mask(mask);
-            image(img, 0, 0);
-        } else {
-            image(img, 0, 0);
-        }
+        const pCheck = getCheckDigit(pass);
+        const dCheck = getCheckDigit(dob);
+        const eCheck = getCheckDigit(exp);
+        
+        let line2Base = pass + pCheck + country.substring(0,3) + dob + dCheck + gen + exp + eCheck;
+        let finalLine2Part = line2Base.padEnd(43, '<');
+        let compositeCheck = getCheckDigit(finalLine2Part);
+        
+        document.getElementById('result').value = line1 + "\n" + finalLine2Part + compositeCheck;
     }
 
-    function savePhoto() {
-        saveCanvas('ariful-ai-edited', 'png');
+    function copyResult() {
+        const copyText = document.getElementById("result");
+        copyText.select();
+        document.execCommand("copy");
+        alert("Copied to clipboard!");
     }
 </script>
-
 </body>
 </html>
